@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Digraph Database</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;color:#111;background:#f9f9f7;min-height:100vh}
+header{background:#fff;border-bottom:0.5px solid #ddd;padding:16px 24px;position:sticky;top:0;z-index:10}
+header h1{font-size:18px;font-weight:500}
+header p{font-size:12px;color:#888;margin-top:2px}
+.container{max-width:1200px;margin:0 auto;padding:16px 24px}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+.toolbar input,.toolbar select{font-size:13px;padding:6px 10px;border:0.5px solid #ccc;border-radius:8px;background:#fff;color:#111;height:34px}
+.toolbar input{flex:1;min-width:160px}
+.row2{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;align-items:flex-end}
+.row2 input{font-size:13px;padding:6px 10px;border:0.5px solid #ccc;border-radius:8px;background:#fff;color:#111;height:34px;flex:1;min-width:160px}
+.row2 button{font-size:13px;padding:6px 14px;border:0.5px solid #ccc;border-radius:8px;background:#fff;color:#111;height:34px;cursor:pointer;white-space:nowrap}
+.row2 button:hover{background:#f0f0ee}
+.row2 label{font-size:12px;color:#888;display:flex;flex-direction:column;gap:3px}
+.row2 label span{font-size:11px;color:#aaa}
+.stats{font-size:12px;color:#888;margin-bottom:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.card{background:#fff;border:0.5px solid #e0e0e0;border-radius:12px;padding:12px;cursor:pointer;transition:border-color 0.15s;display:flex;flex-direction:column;gap:6px}
+.card:hover{border-color:#aaa}
+.card.highlight{border-color:#4a90d9;background:#f0f6ff}
+.card canvas{display:block;margin:0 auto}
+.card-d6{font-size:11px;color:#888;font-family:monospace}
+.card-poly{font-size:12px;font-family:monospace;color:#111;word-break:break-all}
+.card-meta{font-size:11px;color:#888}
+.card-roots{font-size:10px;color:#666;font-family:monospace;word-break:break-all}
+.card-tags{display:flex;gap:4px;flex-wrap:wrap}
+.tag{font-size:10px;padding:2px 6px;border-radius:6px;font-weight:500}
+.tag.tournament{background:#e8f0fe;color:#1a56db}
+.tag.acyclic{background:#e3fdf0;color:#0d6e3d}
+.tag.complex{background:#fef3e8;color:#c05c00}
+.tag.nonint{background:#fdf0f8;color:#8b008b}
+.pagination{display:flex;gap:6px;justify-content:center;padding:20px 0;flex-wrap:wrap}
+.pagination button{font-size:13px;padding:5px 12px;border:0.5px solid #ccc;border-radius:8px;background:#fff;color:#111;cursor:pointer}
+.pagination button.active{background:#f0f0ee;font-weight:500}
+.pagination button:disabled{opacity:0.4;cursor:default}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.4);display:none;align-items:center;justify-content:center;z-index:100}
+.modal-bg.open{display:flex}
+.modal{background:#fff;border:0.5px solid #ddd;border-radius:14px;padding:20px;max-width:480px;width:90%;max-height:85vh;overflow-y:auto;position:relative}
+.modal h3{font-size:15px;font-weight:500;margin-bottom:14px}
+.modal-close{position:absolute;top:12px;right:14px;cursor:pointer;font-size:20px;color:#aaa;background:none;border:none;line-height:1}
+.mrow{display:flex;justify-content:space-between;align-items:flex-start;padding:6px 0;border-bottom:0.5px solid #f0f0f0;font-size:13px;gap:12px}
+.mrow:last-child{border-bottom:none}
+.lbl{color:#888;flex-shrink:0}
+.val{font-family:monospace;font-size:12px;text-align:right;word-break:break-all}
+.mat{font-family:monospace;font-size:11px;line-height:1.7;padding:8px 10px;background:#f9f9f7;border-radius:8px;margin-top:4px;white-space:pre}
+.err{color:#c00;font-size:12px;padding:4px 0}
+@media(prefers-color-scheme:dark){
+body{background:#1a1a1a;color:#e0e0e0}
+header{background:#222;border-color:#333}
+header h1{color:#e0e0e0}
+.toolbar input,.toolbar select,.row2 input,.row2 button{background:#2a2a2a;color:#e0e0e0;border-color:#444}
+.card{background:#222;border-color:#333}
+.card:hover{border-color:#666}
+.card.highlight{border-color:#4a90d9;background:#1a2a3a}
+.card-poly,.card-d6,.card-meta{color:#bbb}
+.tag.tournament{background:#1a2a4a;color:#7aadff}
+.tag.acyclic{background:#0d2a1a;color:#5ae0a0}
+.tag.complex{background:#3a2010;color:#ffaa55}
+.tag.nonint{background:#2a102a;color:#dd88dd}
+.modal{background:#222;border-color:#444}
+.modal h3{color:#e0e0e0}
+.mrow{border-color:#333}
+.lbl{color:#888}
+.val{color:#ccc}
+.mat{background:#2a2a2a;color:#ccc}
+.pagination button{background:#222;border-color:#444;color:#ccc}
+.pagination button.active{background:#333}
+.tag.selfconv{background:#f0fef4;color:#166534}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>Digraph Database</h1>
+  <p>Non-isomorphic directed graphs from McKay&#8217;s catalogue</p>
+</header>
+<div class="container">
+  <div class="toolbar">
+    <input id="search" placeholder="Search d6, polynomial, roots...">
+    <select id="filt-n"><option value="">All n</option></select>
+    <select id="filt-e"><option value="">All edges</option></select>
+    <select id="filt-dc"><option value="">All dc</option></select>
+    <select id="filt-type">
+      <option value="">All types</option>
+      <option value="tournament">Tournament</option>
+      <option value="acyclic">Acyclic</option>
+      <option value="neither">Neither</option>
+    </select>
+    <select id="filt-iso"><option value="">All polynomials</option></select>
+    <select id="filt-roots">
+      <option value="">All roots</option>
+      <option value="complex">Complex roots</option>
+      <option value="nonint">Non-integer roots</option>
+      <option value="integer">Integer roots only</option>
+      <option value="real_nonint">Real non-integer roots</option>
+      <option value="a_complex">Complex A-eigenvalues</option>
+    </select>
+    <select id="filt-scc">
+      <option value="">All connectivity</option>
+      <option value="strongly">Strongly connected</option>
+      <option value="not_strongly">Not strongly connected</option>
+    </select>
+    <select id="filt-sc">
+      <option value="">All (self-converse)</option>
+      <option value="yes">Self-converse</option>
+      <option value="no">Not self-converse</option>
+    </select>
+    <select id="filt-ncomp">
+      <option value="">All #components</option>
+    </select>
+    <select id="sort-by">
+      <option value="">Default order (n, e)</option>
+      <option value="h_radius_asc">ρ(H) smallest first</option>
+      <option value="h_radius_desc">ρ(H) largest first</option>
+      <option value="a_radius_asc">ρ(A) smallest first</option>
+      <option value="a_radius_desc">ρ(A) largest first</option>
+      <option value="h_eigs_min_asc">H min eigenvalue ascending</option>
+      <option value="h_eigs_min_desc">H min eigenvalue descending</option>
+      <option value="h_eigs_max_asc">H max eigenvalue ascending</option>
+      <option value="h_eigs_max_desc">H max eigenvalue descending</option>
+    </select>
+  </div>
+  <div class="row2">
+    <label>
+      <span>Search by upper-triangular (tournaments only)</span>
+      <input id="search-tri" placeholder="e.g. 101010">
+    </label>
+    <label>
+      <span>Search by adjacency matrix (rows separated by commas)</span>
+      <input id="search-adj" placeholder="e.g. 010,001,100">
+    </label>
+    <button id="btn-adj">Find up to isomorphism</button>
+    <div class="err" id="adj-err"></div>
+  </div>
+  <div class="stats" id="stats"></div>
+  <div class="grid" id="grid"></div>
+  <div class="pagination" id="pages"></div>
+</div>
+<div class="modal-bg" id="modal-wrap">
+  <div class="modal">
+    <button class="modal-close" id="modal-close" aria-label="Close">&times;</button>
+    <h3 id="m-title"></h3>
+    <canvas id="m-canvas" width="200" height="200" style="display:block;margin:0 auto 14px"></canvas>
+    <div id="m-rows"></div>
+  </div>
+</div>
+<script>
+
+let RAW = [];
+
+fetch('https://pub-8a177834afc047aeb97ddb4a96963092.r2.dev/graphs_slim_N5.json')
+  .then(r => r.json())
+  .then(data => {
+    RAW = data;
+    applyFilters();
+  });
+
+var PAGE_SIZE = 480;
+var page = 0;
+var filtered = [];
+var isoTarget = null; // adjacency matrix to match up to isomorphism
+
+// ---- Root classification helpers ----
+function hasComplex(roots) {
+  return roots.indexOf('i') !== -1;
+}
+function hasNonInteger(roots) {
+  if (roots === 'n/a' || roots === 'none') return false;
+  var parts = roots.split(',');
+  for (var i=0; i<parts.length; i++) {
+    var p = parts[i].trim();
+    if (p.indexOf('i') !== -1) return true;
+    var v = parseFloat(p);
+    if (!isNaN(v) && Math.abs(v - Math.round(v)) > 1e-6) return true;
+  }
+  return false;
+}
+
+// ---- Isomorphism check (JS port) ----
+function permutations(n) {
+  if (n === 0) return [[]];
+  var result = [];
+  var sub = permutations(n-1);
+  for (var i=0; i<sub.length; i++) {
+    for (var j=0; j<=n-1; j++) {
+      var p = sub[i].slice();
+      p.splice(j, 0, n-1);
+      result.push(p);
+    }
+  }
+  return result;
+}
+
+var _permCache = {};
+function getPerms(n) {
+  if (!_permCache[n]) _permCache[n] = permutations(n);
+  return _permCache[n];
+}
+
+function isIsomorphic(adj1, adj2) {
+  var n = adj1.length;
+  if (adj2.length !== n) return false;
+  var perms = getPerms(n);
+  for (var p=0; p<perms.length; p++) {
+    var perm = perms[p];
+    var ok = true;
+    outer: for (var i=0; i<n; i++) {
+      for (var j=0; j<n; j++) {
+        if (adj1[perm[i]][perm[j]] !== adj2[i][j]) { ok=false; break outer; }
+      }
+    }
+    if (ok) return true;
+  }
+  return false;
+}
+
+// ---- Parse adjacency matrix from string ----
+function parseAdjStr(s) {
+  s = s.trim();
+  if (!s) return null;
+  var rows = s.split(',');
+  var n = rows.length;
+  var adj = [];
+  for (var i=0; i<n; i++) {
+    var row = rows[i].trim().replace(/\s+/g,'').split('').map(Number);
+    if (row.length !== n) return null;
+    if (row.some(function(v){ return v!==0 && v!==1; })) return null;
+    adj.push(row);
+  }
+  return adj;
+}
+
+// ---- Draw graph ----
+function drawGraph(canvas, adj, size) {
+  var ctx = canvas.getContext('2d');
+  canvas.width = size; canvas.height = size;
+  ctx.clearRect(0,0,size,size);
+  var n = adj.length;
+  var cx = size/2, cy = size/2, r = size * 0.36;
+  var pos = [];
+  if (n === 1) {
+    pos = [[cx, cy]];
+  } else {
+    for (var k=0; k<n; k++) {
+      pos.push([cx + r*Math.cos(2*Math.PI*k/n - Math.PI/2),
+                cy + r*Math.sin(2*Math.PI*k/n - Math.PI/2)]);
+    }
+  }
+  var isDark = window.matchMedia('(prefers-color-scheme:dark)').matches;
+  var col = isDark ? '#aaa' : '#222';
+  var nodeR = Math.max(8, size*0.07);
+  for (var i=0; i<n; i++) {
+    for (var j=0; j<n; j++) {
+      if (!adj[i][j] || i===j) continue;
+      var x1=pos[i][0], y1=pos[i][1], x2=pos[j][0], y2=pos[j][1];
+      if (adj[j][i]) {
+        var dx=y2-y1, dy=-(x2-x1), nm=Math.sqrt(dx*dx+dy*dy)||1, off=nodeR*0.5;
+        x1+=off*dx/nm; y1+=off*dy/nm; x2+=off*dx/nm; y2+=off*dy/nm;
+      }
+      var ang = Math.atan2(y2-y1, x2-x1);
+      var ex = x2 - nodeR*1.1*Math.cos(ang), ey = y2 - nodeR*1.1*Math.sin(ang);
+      var sx = x1 + nodeR*1.1*Math.cos(ang), sy = y1 + nodeR*1.1*Math.sin(ang);
+      ctx.strokeStyle=col; ctx.lineWidth=1.2;
+      ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(ex,ey); ctx.stroke();
+      var al=7, aw=0.3;
+      ctx.fillStyle=col;
+      ctx.beginPath(); ctx.moveTo(ex,ey);
+      ctx.lineTo(ex-al*Math.cos(ang-aw), ey-al*Math.sin(ang-aw));
+      ctx.lineTo(ex-al*Math.cos(ang+aw), ey-al*Math.sin(ang+aw));
+      ctx.closePath(); ctx.fill();
+    }
+  }
+  for (var i=0; i<n; i++) {
+    ctx.beginPath(); ctx.arc(pos[i][0],pos[i][1],nodeR,0,2*Math.PI);
+    ctx.fillStyle=col; ctx.fill();
+    ctx.fillStyle='#fff';
+    ctx.font='bold '+Math.max(9,Math.floor(nodeR*0.9))+'px system-ui';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(i, pos[i][0], pos[i][1]);
+  }
+}
+
+function fmtPoly(s) {
+  return s.replace(/\*\*(\d+)/g, '<sup>$1</sup>').replace(/\*/g, '');
+}
+
+function matStr(adj) {
+  return adj.map(function(r){ return '['+r.join(' ')+']'; }).join('\n');
+}
+
+function buildCard(g) {
+  var div = document.createElement('div');
+  div.className = 'card' + (isoTarget && isIsomorphic(g.adj, isoTarget) ? ' highlight' : '');
+  var c = document.createElement('canvas'); div.appendChild(c);
+  var d = document.createElement('div'); d.className='card-d6'; d.textContent=g.d6; div.appendChild(d);
+  var p = document.createElement('div'); p.className='card-poly'; p.innerHTML=fmtPoly(g.poly); div.appendChild(p);
+  var m = document.createElement('div'); m.className='card-meta'; m.textContent='n='+g.n+', e='+g.e+', dc='+g.dc; div.appendChild(m);
+  var ro = document.createElement('div'); ro.className='card-roots'; ro.textContent='Roots: '+g.roots; div.appendChild(ro);
+  var he = document.createElement('div'); he.className='card-roots'; he.textContent='H-eigs: '+g.h_eigs; div.appendChild(he);
+  var ae = document.createElement('div'); ae.className='card-roots'; ae.textContent='A-eigs: '+g.a_eigs; div.appendChild(ae);
+  var hs = document.createElement('div'); hs.className='card-roots'; hs.textContent='ρ(H): '+g.h_spectral_radius+', ρ(A): '+g.a_spectral_radius; div.appendChild(hs);
+  var tags = document.createElement('div'); tags.className='card-tags';
+  var sc = document.createElement('div'); sc.className='card-meta';
+  sc.textContent = g.strongly_connected ? 'Strongly connected' : g.n_scc+' SCCs';
+  div.appendChild(sc);
+  var hasTags = false;
+  if (g.self_converse) { var t=document.createElement('span'); t.className='tag selfconv'; t.textContent='self-converse'; tags.appendChild(t); hasTags=true; }
+  if (g.tournament) { var t=document.createElement('span'); t.className='tag tournament'; t.textContent='tournament'; tags.appendChild(t); hasTags=true; }
+  if (g.acyclic)    { var t=document.createElement('span'); t.className='tag acyclic';    t.textContent='acyclic';    tags.appendChild(t); hasTags=true; }
+  if (hasComplex(g.roots))    { var t=document.createElement('span'); t.className='tag complex'; t.textContent='complex roots'; tags.appendChild(t); hasTags=true; }
+  else if (hasNonInteger(g.roots)) { var t=document.createElement('span'); t.className='tag nonint'; t.textContent='non-integer roots'; tags.appendChild(t); hasTags=true; }
+  if (hasTags) div.appendChild(tags);
+  div.addEventListener('click', function(){ openModal(g); });
+  requestAnimationFrame(function(){ drawGraph(c, g.adj, 140); });
+  return div;
+}
+
+function openModal(g) {
+  document.getElementById('m-title').textContent = 'Graph '+g.d6;
+  drawGraph(document.getElementById('m-canvas'), g.adj, 200);
+  var rows = [
+    ['d6', g.d6], ['n', g.n], ['edges', g.e], ['dc(D)', g.dc],
+    ['P(D,k)', '<span style="font-family:monospace">'+fmtPoly(g.poly)+'</span>'],
+    ['Roots', g.roots],
+    ['Tournament', g.tournament ? 'Yes' : 'No'],
+    ['Acyclic',    g.acyclic    ? 'Yes' : 'No'],
+  ];
+  if (g.upper_tri !== null && g.upper_tri !== undefined) rows.push(['Upper-tri', g.upper_tri]);
+  rows.push(['H-eigenvalues', g.h_eigs]);
+  rows.push(['A-eigenvalues', g.a_eigs]);
+  rows.push(['ρ(H) spectral radius', g.h_spectral_radius]);
+  rows.push(['ρ(A) spectral radius', g.a_spectral_radius]);
+  rows.push(['Strongly connected', g.strongly_connected ? 'Yes' : 'No']);
+  rows.push(['# strong components', g.n_scc]);
+  rows.push(['Self-converse', g.self_converse ? 'Yes' : 'No']);
+  if (g.h_matrix) {
+    var hmat = g.h_matrix.map(function(row){
+      return '[' + row.map(function(c){
+        var re = c[0], im = c[1];
+        if (im === 0) return re.toString();
+        if (re === 0) return (im === 1 ? 'i' : im === -1 ? '-i' : im+'i');
+        return re + (im > 0 ? '+' : '') + (im === 1 ? 'i' : im === -1 ? '-i' : im+'i');
+      }).join('  ') + ']';
+    }).join('\n');
+    rows.push(['Hermitian matrix', '<div class="mat">'+hmat+'</div>']);
+  }
+  rows.push(['Adjacency matrix', '<div class="mat">'+matStr(g.adj)+'</div>']);
+  document.getElementById('m-rows').innerHTML = rows.map(function(r){
+    return '<div class="mrow"><span class="lbl">'+r[0]+'</span><span class="val">'+r[1]+'</span></div>';
+  }).join('');
+  document.getElementById('modal-wrap').classList.add('open');
+}
+
+document.getElementById('modal-close').onclick = function(){
+  document.getElementById('modal-wrap').classList.remove('open');
+};
+document.getElementById('modal-wrap').onclick = function(e){
+  if (e.target === e.currentTarget) document.getElementById('modal-wrap').classList.remove('open');
+};
+
+// ---- Isomorphism search button ----
+document.getElementById('btn-adj').onclick = function() {
+  var s = document.getElementById('search-adj').value.trim();
+  var err = document.getElementById('adj-err');
+  if (!s) { isoTarget = null; err.textContent=''; applyFilters(); return; }
+  var adj = parseAdjStr(s);
+  if (!adj) { err.textContent='Invalid matrix. Use rows of 0/1 separated by commas, e.g. 010,001,100'; return; }
+  err.textContent='';
+  isoTarget = adj;
+  applyFilters();
+};
+
+// Clear iso target if adj input is cleared
+document.getElementById('search-adj').addEventListener('input', function(){
+  if (!this.value.trim()) { isoTarget=null; applyFilters(); }
+});
+
+function applyFilters() {
+  var s    = document.getElementById('search').value.toLowerCase();
+  var fn   = document.getElementById('filt-n').value;
+  var fe   = document.getElementById('filt-e').value;
+  var fdc  = document.getElementById('filt-dc').value;
+  var tp   = document.getElementById('filt-type').value;
+  var iso  = document.getElementById('filt-iso').value;
+  var fr   = document.getElementById('filt-roots').value;
+  var tri  = document.getElementById('search-tri').value.trim();
+  var fscc  = document.getElementById('filt-scc').value;
+  var fncomp = document.getElementById('filt-ncomp').value;
+  var fsc = document.getElementById('filt-sc').value;
+
+  filtered = RAW.filter(function(g) {
+    if (fn  && g.n  != fn)  return false;
+    if (fe  && g.e  != fe)  return false;
+    if (fdc && g.dc != fdc) return false;
+    if (tp === 'tournament' && !g.tournament) return false;
+    if (tp === 'acyclic'    && !g.acyclic)    return false;
+    if (tp === 'neither'    && (g.tournament||g.acyclic)) return false;
+    if (iso && g.poly !== iso) return false;
+    if (fr === 'complex' && !hasComplex(g.roots)) return false;
+    if (fr === 'nonint'  && !hasNonInteger(g.roots)) return false;
+    if (fr === 'integer' && (hasNonInteger(g.roots) || g.roots==='n/a')) return false;
+    if (fr === 'real_nonint' && !(hasNonInteger(g.roots) && !hasComplex(g.roots))) return false;
+    if (fr === 'a_complex' && !hasComplex(g.a_eigs)) return false;
+    if (tri && g.upper_tri !== tri) return false;
+    if (isoTarget && !isIsomorphic(g.adj, isoTarget)) return false;
+    if (fscc === 'strongly'     && !g.strongly_connected) return false;
+    if (fscc === 'not_strongly' &&  g.strongly_connected) return false;
+    if (fncomp && g.n_scc != fncomp) return false;
+    if (s && !(g.d6+' '+g.poly+' '+g.roots+(g.upper_tri||'')).toLowerCase().includes(s)) return false;
+    if (fsc === 'yes' && !g.self_converse) return false;
+    if (fsc === 'no'  &&  g.self_converse) return false;
+    return true;
+  });
+  var sort = document.getElementById('sort-by').value;
+  if (sort) {
+    filtered.sort(function(a, b) {
+      var getMinEig = function(g) { return Math.min.apply(null, g.h_eigs_list || [0]); };
+      var getMaxEig = function(g) { return Math.max.apply(null, g.h_eigs_list || [0]); };
+      if (sort === 'h_radius_asc')    return a.h_spectral_radius - b.h_spectral_radius;
+      if (sort === 'h_radius_desc')   return b.h_spectral_radius - a.h_spectral_radius;
+      if (sort === 'a_radius_asc')    return a.a_spectral_radius - b.a_spectral_radius;
+      if (sort === 'a_radius_desc')   return b.a_spectral_radius - a.a_spectral_radius;
+      if (sort === 'h_eigs_min_asc')  return getMinEig(a) - getMinEig(b);
+      if (sort === 'h_eigs_min_desc') return getMinEig(b) - getMinEig(a);
+      if (sort === 'h_eigs_max_asc')  return getMaxEig(a) - getMaxEig(b);
+      if (sort === 'h_eigs_max_desc') return getMaxEig(b) - getMaxEig(a);
+      return 0;
+    });
+  }
+  page = 0; 
+  render();
+}
+
+function render() {
+  var grid = document.getElementById('grid'); grid.innerHTML = '';
+  var slice = filtered.slice(page*PAGE_SIZE, (page+1)*PAGE_SIZE);
+  slice.forEach(function(g){ grid.appendChild(buildCard(g)); });
+  document.getElementById('stats').textContent = 'Showing '+filtered.length+' of '+RAW.length+' graphs';
+  renderPages();
+}
+
+function renderPages() {
+  var total = Math.ceil(filtered.length / PAGE_SIZE);
+  var el = document.getElementById('pages'); el.innerHTML = '';
+  if (total <= 1) return;
+  function mkbtn(t, p, dis) {
+    var b = document.createElement('button');
+    b.textContent = t; b.disabled = dis;
+    if (p === page) b.classList.add('active');
+    b.onclick = function(){ page=p; render(); window.scrollTo(0,0); };
+    return b;
+  }
+  el.appendChild(mkbtn('‹', page-1, page===0));
+  for (var i=0; i<total; i++) el.appendChild(mkbtn(i+1, i, false));
+  el.appendChild(mkbtn('›', page+1, page===total-1));
+}
+
+function populateSelects() {
+  function uniq(arr) { return arr.filter(function(v,i,a){ return a.indexOf(v)===i; }); }
+  function srt(arr)  { return arr.slice().sort(function(a,b){ return a-b; }); }
+  function add(id, vals, fmt) {
+    vals.forEach(function(v){
+      var o=document.createElement('option'); o.value=v; o.textContent=fmt(v);
+      document.getElementById(id).appendChild(o);
+    });
+  }
+  add('filt-n',  srt(uniq(RAW.map(function(g){return g.n;}))),  function(v){ return 'n = '+v; });
+  add('filt-e',  srt(uniq(RAW.map(function(g){return g.e;}))),  function(v){ return v+' edges'; });
+  add('filt-dc', srt(uniq(RAW.map(function(g){return g.dc;}))), function(v){ return 'dc = '+v; });
+  var ps = uniq(RAW.map(function(g){return g.poly;})).sort();
+  add('filt-iso', ps, function(v){ return v; });
+  var comps = srt(uniq(RAW.map(function(g){ return g.n_scc; })));
+  add('filt-ncomp', comps, function(v){ return v+' component'+(v==1?'':'s'); });
+}
+
+['search','filt-n','filt-e','filt-dc','filt-type','filt-iso','filt-roots','search-tri','sort-by','filt-scc', 'filt-ncomp','filt-sc'].forEach(function(id){
+  document.getElementById(id).addEventListener('input', applyFilters);
+});
+populateSelects();
+applyFilters();
+</script>
+</body>
+</html>
